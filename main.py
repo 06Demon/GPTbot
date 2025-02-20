@@ -1,10 +1,9 @@
 import asyncio
-import os
 from aiogram import Bot, Dispatcher
 
 from app.handlers import router
 
-with open("app/.venv", "r") as file:
+with open(".env", "r") as file:
     TOKEN = file.readline()
 
 
