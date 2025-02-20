@@ -1,10 +1,10 @@
 import asyncio
 from aiogram import Bot, Dispatcher
+import os
 
 from app.handlers import router
 
-with open(".env", "r") as file:
-    TOKEN = file.readline()
+TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 
 
 async def main():
