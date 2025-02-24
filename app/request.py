@@ -70,15 +70,15 @@ class Text2ImageAPI:
             time.sleep(delay)
 
 
-def convert2img(image):
-    with open("temp.bin", "wb") as f:
+def convert2img(user_id, image):
+    with open(f"public\\{user_id}.bin", "wb") as f:
         f.write(bytes(image, "UTF-8"))
 
-    f = open("temp.bin", "rb")
+    f = open(f"public\\{user_id}.bin", "rb")
     byte = f.read()
     f.close()
 
-    decode = open("img.webp", "wb")
+    decode = open(f"public\\{user_id}.webp", "wb")
     decode.write(base64.b64decode(byte))
     decode.close()
     print("Картинка готова к отправке")

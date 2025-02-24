@@ -25,10 +25,14 @@ class Request(StatesGroup):
     request = State()
 
 
+class Generation(StatesGroup):
+    request_to_generation = State()
+
+
 @router.message(CommandStart())
 async def cmd_start(message: Message):
     await message.answer(
-        "Привет, я бот, который сгенерирует картинку по твоему запросу",
+        "Привет, я бот, с помощью которого ты можешь общаться с GigaChat или генерировать картинки через Kandinsky 3.1\n Выбери соответсвующую команду для продолжения\n(Общение - общение с GigaChat\nСгенерировать картинку - генерация картинок с помощью Kandinsky 3.1)",
         reply_markup=kb.home,
     )
 
@@ -36,42 +40,75 @@ async def cmd_start(message: Message):
 @router.message(F.text == "Помощь")
 async def cmd_help(message: Message):
     await message.answer(
-        "Вот список доступных команд:\nПомощь - показывает доступные команды",
+        "Вот список доступных команд:\nПомощь - показывает доступные команды\nСгенерировать картинку - начало работы с Kandinsky 3.1\nОбщение - начало работы с GigaChat\nЗавершить генерацию - прекращение работы с Kandinsky 3.1\nЗавершить общение - прекращение работы с GigaChat",
         reply_markup=kb.home,
     )
 
 
-@router.message(F.text == "Сгенерировать")
+@router.message(F.text == "Сгенерировать картинку")
 async def cmd_generation(message: Message, state: FSMContext):
     await message.answer(
-        "Введите запрос, по которому хотите сгенерировать картинку",
-        reply_markup=kb.cancel,
+        "Введите запрос, по которому хотите сгенерировать картинку\nЕсли вы передумали генерировать картинку, нажмите соответствующую кнопку ниже",
+        reply_markup=kb.cancel_kand,
+    )
+    await state.set_state(Generation.request_to_generation)
+
+
+@router.message(F.text == "Завершить генерацию")
+async def cancel_generation(message: Message, state: FSMContext):
+    await state.clear()
+    await message.answer(
+        "Генерация завершена",
+        reply_markup=kb.home,
+    )
+
+
+@router.message(Generation.request_to_generation)
+async def generation_processing(message: Message, state: FSMContext):
+    user_id = message.from_user.id
+
+    await state.update_data(req=message.text)
+    await message.answer("Подождите некоторое время", reply_markup=kb.cancel_kand)
+    data = await state.get_data()
+
+    uuid = api.generate(f"{data['req']}", model_id)
+    images = api.check_generation(uuid)
+    convert2img(user_id, images[0])
+
+    image = FSInputFile(
+        f"C:\\Lobovikov\\Programming\\PictureBot\\public\\{user_id}.webp"
+    )
+    await message.answer(
+        "Ответ нейросетки:",
+        reply_markup=kb.cancel_kand,
+    )
+
+    await message.answer_photo(photo=image)
+
+
+@router.message(F.text == "Общение")
+async def cmd_communication(message: Message, state: FSMContext):
+    await message.answer(
+        "Введите запрос для начала общения с GigaChat\nЕсли вы хотите прекратить общение, нажмите соответствующую кнопку ниже",
+        reply_markup=kb.cancel_gigachat,
     )
     await state.set_state(Request.request)
 
 
-@router.message(F.text == "Завершить генерацию")
-async def cancel_genersetion(message: Message, state: FSMContext):
+@router.message(F.text == "Завершить общение")
+async def cancel_generation(message: Message, state: FSMContext):
     await state.clear()
     await message.answer(
-        "Генерация завершена, если вы желаете продолжить, то нажмине на соответствующую кнопку",
+        "Общение прекращено",
         reply_markup=kb.home,
     )
 
 
 @router.message(Request.request)
-async def request_processing(message: Message, state: FSMContext):
+async def communication_processing(message: Message, state: FSMContext):
     await state.update_data(req=message.text)
-    await message.answer("Подождите некоторое время", reply_markup=kb.cancel)
     data = await state.get_data()
-
-    uuid = api.generate(f"{data['req']}", model_id)
-    images = api.check_generation(uuid)
-    convert2img(images[0])
-
-    image = FSInputFile("C:\\Lobovikov\\Programming\\PictureBot\\img.webp")
+    response = model.chat(data["req"])
     await message.answer(
-        "Ответ нейросетки:",
-        reply_markup=kb.cancel,
+        f"{response.choices[0].message.content}", reply_markup=kb.cancel_gigachat
     )
-    await message.answer_photo(image)
